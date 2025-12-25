@@ -15,7 +15,7 @@ public record BirthDate(LocalDate value) {
         }
     }
 
-    public Integer age(){
+    public Integer age() {
         return Period.between(this.value, LocalDate.now()).getYears();
     }
 

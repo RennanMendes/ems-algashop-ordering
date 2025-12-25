@@ -5,7 +5,7 @@ import java.util.Objects;
 public record Phone(String value) {
     public Phone {
         Objects.requireNonNull(value);
-        if (value.isBlank()){
+        if (value.isBlank()) {
             throw new IllegalArgumentException();
         }
     }

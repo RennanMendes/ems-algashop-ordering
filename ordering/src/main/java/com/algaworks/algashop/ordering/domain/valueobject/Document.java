@@ -2,11 +2,11 @@ package com.algaworks.algashop.ordering.domain.valueobject;
 
 import java.util.Objects;
 
-public record Document (String value) {
+public record Document(String value) {
 
-    public Document{
+    public Document {
         Objects.requireNonNull(value);
-        if(value.isBlank()){
+        if (value.isBlank()) {
             throw new IllegalArgumentException();
         }
     }
