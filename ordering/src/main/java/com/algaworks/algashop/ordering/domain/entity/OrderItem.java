@@ -6,6 +6,7 @@ import com.algaworks.algashop.ordering.domain.valueobject.Quantity;
 import com.algaworks.algashop.ordering.domain.valueobject.id.OrderId;
 import com.algaworks.algashop.ordering.domain.valueobject.id.OrderItemId;
 import com.algaworks.algashop.ordering.domain.valueobject.id.ProductId;
+import lombok.Builder;
 
 import java.util.Objects;
 
@@ -22,6 +23,7 @@ public class OrderItem {
 
     private Money totalAmount;
 
+    @Builder(builderClassName = "ExistingOrderItemBuilder", builderMethodName = "existing")
     public OrderItem(OrderItemId id, OrderId orderId, ProductId productId, ProductName productName, Money price,
                      Quantity quantity, Money totalAmount) {
         this.setId(id);
@@ -31,6 +33,24 @@ public class OrderItem {
         this.setPrice(price);
         this.setQuantity(quantity);
         this.setTotalAmount(totalAmount);
+    }
+
+    @Builder(builderClassName = "BrandNewOrderItemBuilder", builderMethodName = "brandNew")
+    private static OrderItem createBrandNew(OrderId orderId, ProductId productId, ProductName productName,
+                                            Money price, Quantity quantity) {
+        OrderItem orderItem = new OrderItem(
+                new OrderItemId(),
+                orderId,
+                productId,
+                productName,
+                price,
+                quantity,
+                Money.ZERO
+        );
+
+        orderItem.recalculateTotals();
+
+        return orderItem;
     }
 
     public OrderItemId id() {
@@ -64,6 +84,10 @@ public class OrderItem {
     private void setId(OrderItemId id) {
         Objects.requireNonNull(id);
         this.id = id;
+    }
+
+    private void recalculateTotals() {
+        this.setTotalAmount(this.price().multiply(this.quantity()));
     }
 
     private void setOrderId(OrderId orderId) {
