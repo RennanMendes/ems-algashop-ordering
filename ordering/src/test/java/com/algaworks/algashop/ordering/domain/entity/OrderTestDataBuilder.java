@@ -2,7 +2,6 @@ package com.algaworks.algashop.ordering.domain.entity;
 
 import com.algaworks.algashop.ordering.domain.valueobject.*;
 import com.algaworks.algashop.ordering.domain.valueobject.id.CustomerId;
-import com.algaworks.algashop.ordering.domain.valueobject.id.ProductId;
 
 import java.time.LocalDate;
 
@@ -12,11 +11,8 @@ public class OrderTestDataBuilder {
 
     private PaymentMethod paymentMethod = PaymentMethod.GATEWAY_BALANCE;
 
-    private Money shippingCost = new Money("10.00");
-    private LocalDate expectedDeliveryDate = LocalDate.now().plusWeeks(1);
-
-    private ShippingInfo shippingInfo = aShippingInfo();
-    private BillingInfo billingInfo = aBillingInfo();
+    private Shipping shipping = aShipping();
+    private Billing billing = aBilling();
 
     private boolean withItems = true;
 
@@ -32,16 +28,18 @@ public class OrderTestDataBuilder {
 
     public Order build() {
         Order order = Order.draft(customerId);
-        order.changeShipping(shippingInfo, shippingCost, expectedDeliveryDate);
-        order.changeBilling(billingInfo);
+        order.changeShipping(shipping);
+        order.changeBilling(billing);
         order.changePaymentMethod(paymentMethod);
 
         if (withItems) {
-            order.addItem(new ProductId(), new ProductName("Notebook X11"),
-                    new Money("3000"), new Quantity(2));
+            order.addItem(ProductTestDataBuilder.aProduct().build(),
+                    new Quantity(2)
+            );
 
-            order.addItem(new ProductId(), new ProductName("4GB RAM"),
-                    new Money("200"), new Quantity(1));
+            order.addItem(ProductTestDataBuilder.aProductAltRamMemory().build(),
+                    new Quantity(1)
+            );
         }
 
         switch (this.status) {
@@ -63,20 +61,27 @@ public class OrderTestDataBuilder {
         return order;
     }
 
-    public static BillingInfo aBillingInfo() {
-        return BillingInfo.builder()
+    public static Billing aBilling() {
+        return Billing.builder()
                 .address(anAddress())
                 .document(new Document("225-09-1992"))
                 .phone(new Phone("123-111-9911"))
-                .fullName(new FullName("John", "Doe")).build();
+                .fullName(new FullName("John", "Doe"))
+                .email(new Email("jhon.doe@gmail.com"))
+                .build();
     }
 
-    public static ShippingInfo aShippingInfo() {
-        return ShippingInfo.builder()
+    public static Shipping aShipping() {
+        return Shipping.builder()
+                .cost(new Money("10"))
+                .expectedDate(LocalDate.now().plusWeeks(1))
                 .address(anAddress())
-                .fullName(new FullName("John", "Doe"))
-                .document(new Document("112-33-2321"))
-                .phone(new Phone("111-441-1244")).build();
+                .recipient(Recipient.builder()
+                        .fullName(new FullName("John", "Doe"))
+                        .document(new Document("112-33-2321"))
+                        .phone(new Phone("111-441-1244"))
+                        .build())
+                .build();
     }
 
     public static Address anAddress() {
@@ -90,6 +95,30 @@ public class OrderTestDataBuilder {
                 .zipCode(new ZipCode("79911")).build();
     }
 
+    public static Shipping aShippingAlt() {
+        return Shipping.builder()
+                .cost(new Money("20.00"))
+                .expectedDate(LocalDate.now().plusWeeks(2))
+                .address(anAddressAlt())
+                .recipient(Recipient.builder()
+                        .fullName(new FullName("Mary", "Jones"))
+                        .document(new Document("552-11-4333"))
+                        .phone(new Phone("54-454-1144"))
+                        .build())
+                .build();
+    }
+
+    public static Address anAddressAlt() {
+        return Address.builder()
+                .street("Sansome Street")
+                .number("875")
+                .neighborhood("Sansome")
+                .city("San Francisco")
+                .state("California")
+                .zipCode(new ZipCode("08040"))
+                .build();
+    }
+
     public OrderTestDataBuilder customerId(CustomerId customerId) {
         this.customerId = customerId;
         return this;
@@ -100,23 +129,13 @@ public class OrderTestDataBuilder {
         return this;
     }
 
-    public OrderTestDataBuilder shippingCost(Money shippingCost) {
-        this.shippingCost = shippingCost;
+    public OrderTestDataBuilder shipping(Shipping shipping) {
+        this.shipping = shipping;
         return this;
     }
 
-    public OrderTestDataBuilder expectedDeliveryDate(LocalDate expectedDeliveryDate) {
-        this.expectedDeliveryDate = expectedDeliveryDate;
-        return this;
-    }
-
-    public OrderTestDataBuilder shippingInfo(ShippingInfo shippingInfo) {
-        this.shippingInfo = shippingInfo;
-        return this;
-    }
-
-    public OrderTestDataBuilder billingInfo(BillingInfo billingInfo) {
-        this.billingInfo = billingInfo;
+    public OrderTestDataBuilder billing(Billing billing) {
+        this.billing = billing;
         return this;
     }
 
@@ -129,4 +148,5 @@ public class OrderTestDataBuilder {
         this.status = status;
         return this;
     }
+
 }
