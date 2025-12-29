@@ -3,6 +3,7 @@ package com.algaworks.algashop.ordering.domain.entity;
 import com.algaworks.algashop.ordering.domain.exception.OrderInvalidShippingDeliveryDateException;
 import com.algaworks.algashop.ordering.domain.exception.OrderStatusCannotBeChangedException;
 import com.algaworks.algashop.ordering.domain.exception.ProductOutOfStockException;
+import com.algaworks.algashop.ordering.domain.exception.OrderCannotBeEditedException;
 import com.algaworks.algashop.ordering.domain.valueobject.*;
 import com.algaworks.algashop.ordering.domain.valueobject.id.CustomerId;
 import com.algaworks.algashop.ordering.domain.valueobject.id.ProductId;
@@ -21,12 +22,12 @@ class OrderTest {
         Order order = Order.draft(customerId);
 
         Assertions.assertWith(order,
-                o-> Assertions.assertThat(o.id()).isNotNull(),
-                o-> Assertions.assertThat(o.customerId()).isEqualTo(customerId),
-                o-> Assertions.assertThat(o.totalAmount()).isEqualTo(Money.ZERO),
-                o-> Assertions.assertThat(o.totalItems()).isEqualTo(Quantity.ZERO),
-                o-> Assertions.assertThat(o.isDraft()).isTrue(),
-                o-> Assertions.assertThat(o.items()).isEmpty(),
+                o -> Assertions.assertThat(o.id()).isNotNull(),
+                o -> Assertions.assertThat(o.customerId()).isEqualTo(customerId),
+                o -> Assertions.assertThat(o.totalAmount()).isEqualTo(Money.ZERO),
+                o -> Assertions.assertThat(o.totalItems()).isEqualTo(Quantity.ZERO),
+                o -> Assertions.assertThat(o.isDraft()).isTrue(),
+                o -> Assertions.assertThat(o.items()).isEmpty(),
 
                 o -> Assertions.assertThat(o.placedAt()).isNull(),
                 o -> Assertions.assertThat(o.paidAt()).isNull(),
@@ -150,7 +151,50 @@ class OrderTest {
         Order order = Order.draft(new CustomerId());
 
         Assertions.assertThatExceptionOfType(OrderInvalidShippingDeliveryDateException.class)
-                .isThrownBy(()-> order.changeShipping(shipping));
+                .isThrownBy(() -> order.changeShipping(shipping));
+    }
+
+    @Test
+    public void givenNonDraftOrder_whenTryToAddItem_shouldNotAllowChange() {
+        Order order = OrderTestDataBuilder.anOrder().status(OrderStatus.PLACED).build();
+        Product product = ProductTestDataBuilder.aProductAltMousePad().build();
+
+        Assertions.assertThatExceptionOfType(OrderCannotBeEditedException.class)
+                .isThrownBy(() -> order.addItem(product, new Quantity(1)));
+    }
+
+    @Test
+    public void givenNonDraftOrder_whenTryToChangePaymentMethod_shouldNotAllowChange() {
+        Order order = OrderTestDataBuilder.anOrder().status(OrderStatus.PLACED).build();
+
+        Assertions.assertThatExceptionOfType(OrderCannotBeEditedException.class)
+                .isThrownBy(() -> order.changePaymentMethod(PaymentMethod.CREDIT_CARD));
+    }
+
+    @Test
+    public void givenNonDraftOrder_whenTryToChangeBilling_shouldNotAllowChange() {
+        Order order = OrderTestDataBuilder.anOrder().status(OrderStatus.PLACED).build();
+
+        Assertions.assertThatExceptionOfType(OrderCannotBeEditedException.class)
+                .isThrownBy(() -> order.changeBilling(OrderTestDataBuilder.aBilling()));
+    }
+
+    @Test
+    public void givenNonDraftOrder_whenTryToChangeShipping_shouldNotAllowChange() {
+        Order order = OrderTestDataBuilder.anOrder().status(OrderStatus.PLACED).build();
+
+        Assertions.assertThatExceptionOfType(OrderCannotBeEditedException.class)
+                .isThrownBy(() -> order.changeShipping(OrderTestDataBuilder.aShipping()));
+    }
+
+    @Test
+    public void givenNonDraftOrder_whenTryToChangeItemQuantity_shouldNotAllowChange() {
+        Order order = OrderTestDataBuilder.anOrder().status(OrderStatus.PLACED).build();
+
+        OrderItem orderItem = order.items().iterator().next();
+
+        Assertions.assertThatExceptionOfType(OrderCannotBeEditedException.class)
+                .isThrownBy(() -> order.changeItemQuantity(orderItem.id(), new Quantity(10)));
     }
 
     @Test
