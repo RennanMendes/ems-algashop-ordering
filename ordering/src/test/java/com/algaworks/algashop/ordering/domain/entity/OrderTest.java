@@ -12,6 +12,7 @@ import org.assertj.core.api.ThrowableAssert;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.Set;
 
 class OrderTest {
@@ -112,6 +113,29 @@ class OrderTest {
         Order order = OrderTestDataBuilder.anOrder().status(OrderStatus.PLACED).build();
         Assertions.assertThatExceptionOfType(OrderStatusCannotBeChangedException.class)
                 .isThrownBy(order::place);
+    }
+
+    @Test
+    public void givenPaidOrder_whenMarkAsReady_shouldChangeToReadyAndSetReadyAt() {
+        Order order = OrderTestDataBuilder.anOrder().status(OrderStatus.PAID).build();
+        order.markAsReady();
+        Assertions.assertWith(order,
+                o -> Assertions.assertThat(o.status()).isEqualTo(OrderStatus.READY),
+                o -> Assertions.assertThat(o.readyAt()).isNotNull()
+        );
+    }
+
+    @Test
+    public void givenNonPaidOrder_whenTryToMarkAsReady_shouldThrowAndNotChangeStatusOrReadyAt() {
+        Order order = OrderTestDataBuilder.anOrder().status(OrderStatus.PLACED).build();
+
+        Assertions.assertThatExceptionOfType(OrderStatusCannotBeChangedException.class)
+                .isThrownBy(order::markAsReady);
+
+        Assertions.assertWith(order,
+                o -> Assertions.assertThat(o.status()).isEqualTo(OrderStatus.PLACED),
+                o -> Assertions.assertThat(o.readyAt()).isNull()
+        );
     }
 
     @Test
@@ -226,6 +250,115 @@ class OrderTest {
         );
 
         Assertions.assertThatExceptionOfType(ProductOutOfStockException.class).isThrownBy(addItemTask);
+    }
+
+    @Test
+    public void givenDraftOrder_whenRemoveItem_shouldRecalculateTotalsAndItems() {
+        Order order = OrderTestDataBuilder.anOrder().build();
+
+        OrderItem ramItem = order.items().stream()
+                .filter(i -> i.productName().equals(new ProductName("4GB RAM")))
+                .findFirst()
+                .orElseThrow();
+
+        order.removeItem(ramItem.id());
+
+        Assertions.assertWith(order,
+                o -> Assertions.assertThat(o.items()).hasSize(1),
+                o -> Assertions.assertThat(o.totalItems()).isEqualTo(new Quantity(2)),
+                o -> Assertions.assertThat(o.totalAmount()).isEqualTo(new Money("6010"))
+        );
+    }
+
+    @Test
+    public void givenDraftOrder_whenRemoveNonExistingItem_shouldThrow() {
+        Order order = OrderTestDataBuilder.anOrder().build();
+
+        Assertions.assertThatExceptionOfType(com.algaworks.algashop.ordering.domain.exception.OrderDoesNotContainOrderItemException.class)
+                .isThrownBy(() -> order.removeItem(new com.algaworks.algashop.ordering.domain.valueobject.id.OrderItemId()));
+    }
+
+    @Test
+    public void givenNonDraftOrder_whenTryToRemoveItem_shouldNotAllowChange() {
+        Order order = OrderTestDataBuilder.anOrder().status(OrderStatus.PLACED).build();
+
+        OrderItem orderItem = order.items().iterator().next();
+
+        Assertions.assertThatExceptionOfType(OrderCannotBeEditedException.class)
+                .isThrownBy(() -> order.removeItem(orderItem.id()));
+    }
+
+    @Test
+    public void givenVariousStatuses_whenCancel_shouldChangeToCanceledAndSetCanceledAt() {
+        // DRAFT
+        Order draftOrder = OrderTestDataBuilder.anOrder().build();
+        draftOrder.cancel();
+        Assertions.assertWith(draftOrder,
+                o -> Assertions.assertThat(o.status()).isEqualTo(OrderStatus.CANCELED),
+                o -> Assertions.assertThat(o.canceledAt()).isNotNull(),
+                o -> Assertions.assertThat(o.isCanceled()).isTrue()
+        );
+
+        // PLACED
+        Order placedOrder = OrderTestDataBuilder.anOrder().status(OrderStatus.PLACED).build();
+        placedOrder.cancel();
+        Assertions.assertWith(placedOrder,
+                o -> Assertions.assertThat(o.status()).isEqualTo(OrderStatus.CANCELED),
+                o -> Assertions.assertThat(o.canceledAt()).isNotNull(),
+                o -> Assertions.assertThat(o.isCanceled()).isTrue()
+        );
+
+        // PAID
+        Order paidOrder = OrderTestDataBuilder.anOrder().status(OrderStatus.PAID).build();
+        paidOrder.cancel();
+        Assertions.assertWith(paidOrder,
+                o -> Assertions.assertThat(o.status()).isEqualTo(OrderStatus.CANCELED),
+                o -> Assertions.assertThat(o.canceledAt()).isNotNull(),
+                o -> Assertions.assertThat(o.isCanceled()).isTrue()
+        );
+
+        // READY
+        Order readyOrder = OrderTestDataBuilder.anOrder().status(OrderStatus.PAID).build();
+        readyOrder.markAsReady();
+        readyOrder.cancel();
+        Assertions.assertWith(readyOrder,
+                o -> Assertions.assertThat(o.status()).isEqualTo(OrderStatus.CANCELED),
+                o -> Assertions.assertThat(o.canceledAt()).isNotNull(),
+                o -> Assertions.assertThat(o.isCanceled()).isTrue()
+        );
+    }
+
+    @Test
+    public void givenCanceledOrder_whenTryToCancelAgain_shouldThrowAndNotChangeCanceledAt() {
+        Order order = OrderTestDataBuilder.anOrder().status(OrderStatus.PAID).build();
+
+        order.cancel();
+        OffsetDateTime firstCanceledAt = order.canceledAt();
+
+        Assertions.assertThatExceptionOfType(OrderStatusCannotBeChangedException.class)
+                .isThrownBy(order::cancel);
+
+        Assertions.assertWith(order,
+                o -> Assertions.assertThat(o.status()).isEqualTo(OrderStatus.CANCELED),
+                o -> Assertions.assertThat(o.canceledAt()).isEqualTo(firstCanceledAt)
+        );
+    }
+
+    @Test
+    public void isCanceled_shouldReturnTrueOnlyWhenStatusIsCanceled() {
+        Order draftOrder = OrderTestDataBuilder.anOrder().build();
+        Order placedOrder = OrderTestDataBuilder.anOrder().status(OrderStatus.PLACED).build();
+        Order paidOrder = OrderTestDataBuilder.anOrder().status(OrderStatus.PAID).build();
+        Order readyOrder = OrderTestDataBuilder.anOrder().status(OrderStatus.PAID).build();
+        readyOrder.markAsReady();
+        Order canceledOrder = OrderTestDataBuilder.anOrder().status(OrderStatus.PAID).build();
+        canceledOrder.cancel();
+
+        Assertions.assertThat(draftOrder.isCanceled()).isFalse();
+        Assertions.assertThat(placedOrder.isCanceled()).isFalse();
+        Assertions.assertThat(paidOrder.isCanceled()).isFalse();
+        Assertions.assertThat(readyOrder.isCanceled()).isFalse();
+        Assertions.assertThat(canceledOrder.isCanceled()).isTrue();
     }
 
 }
